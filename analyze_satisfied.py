@@ -40,7 +40,7 @@ print(
 print()
 
 # Get our permutation vectors, these start at frame 1.
-traces = restraints.get_traces(data)[:500, :]
+traces = restraints.get_traces(data)
 
 xs = []
 ys = []
