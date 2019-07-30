@@ -151,10 +151,14 @@ def load(filename, active_fraction, missing, reference, system):
             name_j, dist = hydrogen_to_heavy(name_j, dist)
 
             # Find the indices.
-            nmr_i = system.index_of_atom(i, name_i)
-            nmr_j = system.index_of_atom(j, name_j)
-            ref_i = ref_lookup(reference, i, name_i)
-            ref_j = ref_lookup(reference, j, name_j)
+            try:
+                nmr_i = system.index_of_atom(i, name_i)
+                nmr_j = system.index_of_atom(j, name_j)
+                ref_i = ref_lookup(reference, i, name_i)
+                ref_j = ref_lookup(reference, j, name_j)
+            except:
+                print(f"Failed to find {i} {name_i} or {j} {name_j}. Skipping.")
+                continue
 
             # Decide if this is a good restraint or not.
             coords_i = reference.xyz[0, ref_i]
