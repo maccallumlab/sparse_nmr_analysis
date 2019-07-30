@@ -5,6 +5,12 @@ import numpy as np
 import os
 import multiprocessing
 import functools
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('fraction', type=float)
+args = parser.parse_args()
+fraction = args.fraction
 
 
 RESTRAINT_FILES = [
@@ -27,7 +33,7 @@ missing = restraints.find_missing_residues(reference, simulation)
 collections = []
 for fn in RESTRAINT_FILES:
     if os.path.exists(fn):
-        collection = restraints.load(fn, 0.8, missing, reference, simulation)
+        collection = restraints.load(fn, fraction, missing, reference, simulation)
         collections.append(collection)
 system = restraints.System(collections)
 
