@@ -103,8 +103,13 @@ class System:
         for t, index in enumerate(indices):
             # Time starts from 1, not 0
             t = t + 1
-            print(f"Loading positions for walker {index} at time {t}.")
-            coords = data.load_positions_random_access(t)[index, :, :] / 10.0
+            try:
+                coords = data.load_positions_random_access(t)[index, :, :] / 10.0
+            except:
+                print(
+                    f"Exception occured while loading positions for walker {index} at time {t}."
+                )
+                raise
             results.append(self.calc_satisfied(coords, use_reference=False))
         return results
 
