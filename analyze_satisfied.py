@@ -47,6 +47,8 @@ print()
 
 # Get our permutation vectors, these start at frame 1.
 traces = restraints.get_traces(data)
+data.close()
+del data
 
 s = []
 t = []
