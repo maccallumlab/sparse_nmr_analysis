@@ -48,20 +48,46 @@ print()
 # Get our permutation vectors, these start at frame 1.
 traces = restraints.get_traces(data)
 
-xs = []
-ys = []
-us = []
-vs = []
+s = []
+t = []
+u = []
+v = []
+w = []
+x = []
+y = []
+z = []
 indices = list(range(traces.shape[1]))
 pool = multiprocessing.Pool()
 func = functools.partial(restraints.get_transitions, traces=traces, system=system)
 results = pool.map(func, indices)
 
-for x, y, u, v in results:
-    xs.extend(x)
-    ys.extend(y)
-    us.extend(u)
-    vs.extend(v)
+transition_results = [result[0] for result in results]
+all_results = [result[1] for result in results]
 
-results = np.vstack([xs, ys, us, vs]).T
+# save the transition results
+for result in  transition_results:
+    s.extend(result.good_start)
+    t.extend(result.bad_start)
+    u.extend(result.good_end)
+    v.extend(result.bad_end)
+    w.extend(result.rep_start)
+    x.extend(result.rep_end)
+    y.extend(result.rmsd_start)
+    z.extend(result.rmsd_end)
+results = np.vstack([s, t, u, v, w, x, y, z]).T
 np.save("transitions.npy", results)
+
+frames = []
+indices = []
+goods = []
+bads = []
+rmsds = []
+for result in all_results:
+    frames.extend(result.frame)
+    indices.extend(result.index)
+    goods.extend(result.good)
+    bads.extend(result.bad)
+    rmsds.extend(result.rmsd)
+
+results = np.vstack([frames, indices, goods, bads, rmsds]).T
+np.save("all_results.npy", results)

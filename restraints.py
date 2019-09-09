@@ -1,7 +1,10 @@
 import meld.vault as vault
+import mdtraj as md
 from collections import namedtuple
 import functools
 import numpy as np
+import uuid
+import os
 
 
 NOE_DIST = 0.45
@@ -262,15 +265,71 @@ def deshuffle_traces(perm_vecs):
     return np.array(results)
 
 
+def calc_rmsds(indices, data):
+    selection_string = open("selection_string.txt").read().strip()
+
+    # load the reference
+    ref = md.load("renumbered.pdb")
+    ref_ind = ref.topology.select(selection_string)
+
+    # setup a template to load coordinates into
+    system = data.load_system()
+    coordinates = data.load_positions_random_access(0)[0, :, :]
+    pdb_writer = system.get_pdb_writer()
+    filename = uuid.uuid4().hex + ".pdb"
+    with open(filename, "w") as outfile:
+        outfile.write(pdb_writer.get_pdb_string(coordinates, 0))
+    template = md.load(filename)
+    os.unlink(filename)
+    traj_ind = template.topology.select(selection_string)
+
+    # calculate RMSDs
+    rmsds = []
+    for frame, index in enumerate(indices):
+        coords = (
+            data.load_positions_random_access(frame)[index, :, :] / 10.0
+        )  # Angstrom to nm
+        template.xyz[0, :, :] = coords
+        rmsd = md.rmsd(template, ref, atom_indices=traj_ind, ref_atom_indices=ref_ind)[
+            0
+        ]
+        rmsds.append(rmsd * 10.0)  # nm to Angstrom
+
+    return np.array(rmsds)
+
+
 def get_transitions(walker_index, traces, system, lag=5):
     data = vault.DataStore.load_data_store()
     data.initialize("r")
     n_stages = traces.shape[0]
-    x = []
-    y = []
+
+    # get all replica indices for our walker
+    replica_indices = traces[:, walker_index]
+
+    # get all RMSDs for our walker
+    rmsds = calc_rmsds(replica_indices, data)
+
+    # get all restraints satisfied
+    satisfied = system.get_all_satisfied(traces[:, walker_index], data)
+
+    # store all results
+    all_results = AllResult(
+        list(range(len(satisfied))),
+        [item[0] for item in satisfied],
+        [item[1] for item in satisfied],
+        replica_indices,
+        rmsds,
+    )
+
+    # store only transitions
+    s = []
+    t = []
     u = []
     v = []
-    satisfied = system.get_all_satisfied(traces[:, walker_index], data)
+    w = []
+    x = []
+    y = []
+    z = []
     for i, j in zip(range(n_stages), range(lag, n_stages)):
         if traces[i, walker_index] > traces[j, walker_index]:
             print(
@@ -283,8 +342,20 @@ def get_transitions(walker_index, traces, system, lag=5):
                 " -> ",
                 satisfied[j],
             )
-            x.append(satisfied[i][0])
-            y.append(satisfied[i][1])
-            u.append(satisfied[j][0] - satisfied[i][0])
-            v.append(satisfied[j][1] - satisfied[i][1])
-    return x, y, u, v
+            s.append(satisfied[i][0])
+            t.append(satisfied[i][1])
+            u.append(satisfied[j][0])
+            v.append(satisfied[j][1])
+            w.append(traces[i, walker_index])
+            x.append(traces[j, walker_index])
+            y.append(rmsds[i])
+            z.append(rmsds[j])
+    transition_results = TransitionResult(s, t, u, v, w, x, y, z)
+    return transition_results, all_results
+
+
+TransitionResult = namedtuple(
+    "TransitionResult",
+    "good_start bad_start good_end bad_end rep_start rep_end rmsd_start rmsd_end",
+)
+AllResult = namedtuple("AllResult", "frame good bad index rmsd")
