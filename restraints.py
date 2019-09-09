@@ -279,6 +279,7 @@ def calc_rmsds(indices, data):
     filename = uuid.uuid4().hex + ".pdb"
     with open(filename, "w") as outfile:
         outfile.write(pdb_writer.get_pdb_string(coordinates, 0))
+        outfile.flush()
     template = md.load(filename)
     os.unlink(filename)
     traj_ind = template.topology.select(selection_string)
