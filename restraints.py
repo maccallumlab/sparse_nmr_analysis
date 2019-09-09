@@ -283,6 +283,12 @@ def calc_rmsds(indices, data):
     os.unlink(filename)
     traj_ind = template.topology.select(selection_string)
 
+    if len(ref_ind) == len(traj_ind):
+        print("Reference and trajectory indices differ in length.")
+        print(ref_ind)
+        print(traj_ind)
+        raise ValueError("Reference and trajectory indices differ in length.")
+
     # calculate RMSDs
     rmsds = []
     for frame, index in enumerate(indices):
