@@ -297,9 +297,7 @@ def calc_rmsds(indices, data):
             data.load_positions_random_access(frame)[index, :, :] / 10.0
         )  # Angstrom to nm
         template.xyz[0, :, :] = coords
-        rmsd = md.rmsd(template, ref, atom_indices=traj_ind, ref_atom_indices=ref_ind)[
-            0
-        ]
+        rmsd = md.rmsd(template.atom_slice(traj_ind), ref.atom_slice(ref_ind))[0]
         rmsds.append(rmsd * 10.0)  # nm to Angstrom
 
     return np.array(rmsds)
