@@ -343,16 +343,6 @@ def get_transitions(walker_index, traces, system, lag=5):
     z = []
     for i, j in zip(range(n_stages), range(lag, n_stages)):
         if traces[i, walker_index] > traces[j, walker_index]:
-            print(
-                walker_index,
-                i,
-                j,
-                traces[i, walker_index],
-                traces[j, walker_index],
-                satisfied[i],
-                " -> ",
-                satisfied[j],
-            )
             s.append(satisfied[i][0])
             t.append(satisfied[i][1])
             u.append(satisfied[j][0])
