@@ -3,8 +3,10 @@ import mdtraj as md
 from collections import namedtuple
 import functools
 import numpy as np
+import time
 import uuid
 import os
+import scipy.spatial
 
 
 NOE_DIST = 0.45
@@ -37,14 +39,11 @@ class Restraint:
             self.is_good,
         )
 
-    def is_satisfied(self, structure, use_reference):
+    def is_satisfied(self, dists, use_reference):
         if use_reference:
-            coords_i = structure[self.ref_i, :]
-            coords_j = structure[self.ref_j, :]
+            dist = dists[self.ref_i, self.ref_j]
         else:
-            coords_i = structure[self.nmr_i, :]
-            coords_j = structure[self.nmr_j, :]
-        dist = np.linalg.norm(coords_i - coords_j)
+            dist = dists[self.nmr_i, self.nmr_j]
         return dist < self.upper_bound
 
 
@@ -55,8 +54,8 @@ class Group:
     def __repr__(self):
         return f"RestraintGroup with {len(self.restraints)} restraints."
 
-    def calc_good_bad_satisfied(self, structure, use_reference):
-        sat = [rest.is_satisfied(structure, use_reference) for rest in self.restraints]
+    def calc_good_bad_satisfied(self, dists, use_reference):
+        sat = [rest.is_satisfied(dists, use_reference) for rest in self.restraints]
         good = [rest.is_good for rest in self.restraints]
         good_sat = any((s and g) for s, g in zip(sat, good))
 
@@ -73,9 +72,9 @@ class Collection:
         self.groups = groups
         self.n_active = n_active
 
-    def calc_satisfied(self, structure, use_reference):
+    def calc_satisfied(self, dists, use_reference):
         sats = [
-            g.calc_good_bad_satisfied(structure, use_reference) for g in self.groups
+            g.calc_good_bad_satisfied(dists, use_reference) for g in self.groups
         ]
         n_good = sum(1 if s[0] else 0 for s in sats)
         n_bad = sum(1 if s[1] else 0 for s in sats)
@@ -93,10 +92,12 @@ class System:
         self.collections = collections
 
     def calc_satisfied(self, structure, use_reference):
+        dists = scipy.spatial.distance.pdist(structure)
+        dists = scipy.spatial.distance.squareform(dists)
         total_good = 0
         total_bad = 0
         for collection in self.collections:
-            n_good, n_bad = collection.calc_satisfied(structure, use_reference)
+            n_good, n_bad = collection.calc_satisfied(dists, use_reference)
             total_good += n_good
             total_bad += n_bad
         return total_good, total_bad
@@ -106,6 +107,8 @@ class System:
         for t, index in enumerate(indices):
             # Time starts from 1, not 0
             t = t + 1
+            print(f"Computing satisfied for {t} of {len(indices)}.")
+            start = time.time()
             try:
                 coords = data.load_positions_random_access(t)[index, :, :] / 10.0
             except:
@@ -114,6 +117,8 @@ class System:
                 )
                 raise
             results.append(self.calc_satisfied(coords, use_reference=False))
+            end = time.time()
+            print(end - start)
         return results
 
 
@@ -293,6 +298,7 @@ def calc_rmsds(indices, data):
     # calculate RMSDs
     rmsds = []
     for frame, index in enumerate(indices):
+        print(f"Computing rmsd for frame {frame}.")
         coords = (
             data.load_positions_random_access(frame)[index, :, :] / 10.0
         )  # Angstrom to nm
